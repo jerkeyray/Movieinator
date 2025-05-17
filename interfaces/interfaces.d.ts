@@ -69,6 +69,9 @@ interface MovieDetails {
   video: boolean;
   vote_average: number;
   vote_count: number;
+  actors?: string[];
+  director?: string;
+  ids?: any;
 }
 
 interface TrendingCardProps {
