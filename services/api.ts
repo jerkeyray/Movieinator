@@ -34,6 +34,7 @@ export const fetchMovies = async ({
   }
 
   const data = await response.json();
+  console.log("Fetched Movies:", data);
 
   // Normalize Trakt response
   const movies = query
@@ -43,32 +44,36 @@ export const fetchMovies = async ({
   // Enhance with OMDb posters
   return await Promise.all(
     movies.map(async (movie: any) => {
-      let poster_path = null;
-      if (movie.ids.imdb) {
+      let poster_path: string | null = null;
+
+      if (movie?.ids?.imdb) {
         try {
-          const omdbResponse = await fetch(
+          const omdbRes = await fetch(
             `${OMDB_CONFIG.BASE_URL}/?i=${movie.ids.imdb}&apikey=${OMDB_CONFIG.API_KEY}`
           );
-          const omdbData = await omdbResponse.json();
-          poster_path =
-            omdbData.Response === "True" &&
-            omdbData.Poster &&
-            omdbData.Poster !== "N/A"
-              ? omdbData.Poster
-              : null;
-        } catch (omdbError) {
+          const omdbData = await omdbRes.json();
+          if (
+            omdbData?.Response === "True" &&
+            omdbData?.Poster &&
+            omdbData?.Poster !== "N/A"
+          ) {
+            poster_path = omdbData.Poster;
+          }
+        } catch (err) {
           console.warn(
             `OMDb poster fetch failed for IMDb ID ${movie.ids.imdb}:`,
-            omdbError
+            err
           );
         }
       }
+
       return {
         id: movie.ids.trakt,
         title: movie.title,
-        release_date: movie.released,
-        overview: movie.overview,
+        release_date: movie.released ?? `${movie.year}-01-01`, // fallback if no released date
+        overview: movie.overview ?? "No overview available.",
         poster_path,
+        vote_average: movie.rating ?? 0,
       };
     })
   );
@@ -92,49 +97,51 @@ export const fetchMovieDetails = async (
 
     const data = await response.json();
 
-    // Fetch OMDb data for poster and additional details
-    let poster_path = null;
+    // OMDb Enhancements
+    let poster_path: string | null = null;
     let actors: string[] | undefined;
     let director: string | undefined;
 
-    if (data.ids.imdb) {
+    if (data?.ids?.imdb) {
       try {
-        const omdbResponse = await fetch(
+        const omdbRes = await fetch(
           `${OMDB_CONFIG.BASE_URL}/?i=${data.ids.imdb}&apikey=${OMDB_CONFIG.API_KEY}`
         );
-        const omdbData = await omdbResponse.json();
-        if (omdbData.Response === "True") {
+        const omdbData = await omdbRes.json();
+
+        if (omdbData?.Response === "True") {
           poster_path =
             omdbData.Poster && omdbData.Poster !== "N/A"
               ? omdbData.Poster
               : null;
+
           actors =
             omdbData.Actors && omdbData.Actors !== "N/A"
               ? omdbData.Actors.split(", ")
               : undefined;
+
           director =
             omdbData.Director && omdbData.Director !== "N/A"
               ? omdbData.Director
               : undefined;
         }
-      } catch (omdbError) {
+      } catch (err) {
         console.warn(
           `OMDb details fetch failed for IMDb ID ${data.ids.imdb}:`,
-          omdbError
+          err
         );
       }
     }
 
-    // Normalize Trakt + OMDb response
     return {
       id: data.ids.trakt,
       title: data.title,
-      release_date: data.released,
-      overview: data.overview,
-      genres: data.genres,
-      runtime: data.runtime,
-      vote_average: data.rating,
-      tagline: data.tagline,
+      release_date: data.released ?? `${data.year}-01-01`,
+      overview: data.overview ?? "No overview available.",
+      genres: data.genres ?? [],
+      runtime: data.runtime ?? 0,
+      vote_average: data.rating ?? 0,
+      tagline: data.tagline ?? "",
       poster_path,
       actors,
       director,
@@ -145,7 +152,7 @@ export const fetchMovieDetails = async (
       budget: 0,
       homepage: null,
       imdb_id: data.ids.imdb,
-      original_language: data.language || "en",
+      original_language: data.language ?? "en",
       original_title: data.title,
       popularity: 0,
       production_companies: [],
