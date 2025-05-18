@@ -1,8 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -19,17 +21,22 @@ import MovieDisplayCard from "@/components/MovieCard";
 import SearchBar from "@/components/SearchBar";
 
 const GENRES = [
-  { id: "action", name: "Action" },
-  { id: "comedy", name: "Comedy" },
-  { id: "drama", name: "Drama" },
-  { id: "horror", name: "Horror" },
-  { id: "sci-fi", name: "Sci-Fi" },
-  { id: "thriller", name: "Thriller" },
+  { id: "action", name: "Action", icon: "flash" },
+  { id: "comedy", name: "Comedy", icon: "happy" },
+  { id: "drama", name: "Drama", icon: "theater-masks" },
+  { id: "horror", name: "Horror", icon: "skull" },
+  { id: "sci-fi", name: "Sci-Fi", icon: "planet" },
+  { id: "thriller", name: "Thriller", icon: "eye" },
+  { id: "romance", name: "Romance", icon: "heart" },
+  { id: "animation", name: "Animation", icon: "color-palette" },
+  { id: "documentary", name: "Documentary", icon: "videocam" },
+  { id: "fantasy", name: "Fantasy", icon: "sparkles" },
 ];
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   console.log("Current state:", { searchQuery, selectedGenre });
 
@@ -53,6 +60,10 @@ const Search = () => {
     console.log("Genre selected:", genre);
     console.log("Current selected genre:", selectedGenre);
     setSelectedGenre(genre === selectedGenre ? null : genre);
+  };
+
+  const clearFilters = () => {
+    setSelectedGenre(null);
   };
 
   // Debounced search effect
@@ -122,25 +133,68 @@ const Search = () => {
               />
             </View>
 
-            <View className="flex-row flex-wrap gap-2 mb-4">
-              {GENRES.map((genre) => (
+            <View className="flex-row items-center justify-between mb-4">
+              <TouchableOpacity
+                onPress={() => setShowFilters(!showFilters)}
+                className="flex-row items-center bg-[#1a1a1a] px-4 py-2 rounded-full"
+              >
+                <Ionicons name="filter" size={20} color="white" />
+                <Text className="text-white ml-2">
+                  {selectedGenre ? "Filtered" : "Filter"}
+                </Text>
+                {selectedGenre && (
+                  <View className="ml-2 bg-accent px-2 py-0.5 rounded-full">
+                    <Text className="text-primary text-xs">1</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {selectedGenre && (
                 <TouchableOpacity
-                  key={genre.id}
-                  onPress={() => handleGenreSelect(genre.id)}
-                  className={`px-4 py-2 rounded-full ${
-                    selectedGenre === genre.id ? "bg-accent" : "bg-[#1a1a1a]"
-                  }`}
+                  onPress={clearFilters}
+                  className="flex-row items-center"
                 >
-                  <Text
-                    className={`${
-                      selectedGenre === genre.id ? "text-primary" : "text-white"
-                    }`}
-                  >
-                    {genre.name}
-                  </Text>
+                  <Text className="text-accent">Clear filters</Text>
                 </TouchableOpacity>
-              ))}
+              )}
             </View>
+
+            {showFilters && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-4"
+              >
+                <View className="flex-row gap-2">
+                  {GENRES.map((genre) => (
+                    <TouchableOpacity
+                      key={genre.id}
+                      onPress={() => handleGenreSelect(genre.id)}
+                      className={`px-4 py-2 rounded-full flex-row items-center ${
+                        selectedGenre === genre.id
+                          ? "bg-accent"
+                          : "bg-[#1a1a1a]"
+                      }`}
+                    >
+                      <Ionicons
+                        name={genre.icon as any}
+                        size={16}
+                        color={selectedGenre === genre.id ? "#151312" : "white"}
+                      />
+                      <Text
+                        className={`ml-2 ${
+                          selectedGenre === genre.id
+                            ? "text-primary"
+                            : "text-white"
+                        }`}
+                      >
+                        {genre.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
 
             {loading && (
               <ActivityIndicator
