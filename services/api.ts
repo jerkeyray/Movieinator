@@ -15,14 +15,26 @@ const OMDB_CONFIG = {
 
 export const fetchMovies = async ({
   query,
+  genre,
 }: {
   query: string;
+  genre?: string | null;
 }): Promise<Movie[]> => {
-  const endpoint = query
+  console.log("Fetching movies with params:", { query, genre });
+
+  let endpoint = query
     ? `${TRAKT_CONFIG.BASE_URL}/search/movie?query=${encodeURIComponent(
         query
       )}&fields=title`
     : `${TRAKT_CONFIG.BASE_URL}/movies/trending?page=1&limit=20`;
+
+  // Add genre filter if specified
+  if (genre) {
+    endpoint = `${TRAKT_CONFIG.BASE_URL}/movies/popular?genres=${genre}&page=1&limit=20`;
+    console.log("Using genre endpoint:", endpoint);
+  }
+
+  console.log("Final endpoint:", endpoint);
 
   const response = await fetch(endpoint, {
     method: "GET",
@@ -30,29 +42,68 @@ export const fetchMovies = async ({
   });
 
   if (!response.ok) {
+    console.error("API Error:", response.statusText);
     throw new Error(`Failed to fetch movies: ${response.statusText}`);
   }
 
   const data = await response.json();
-  console.log("Trakt API Response:", JSON.stringify(data, null, 2)); // Debug log
+  console.log("Raw API Response:", JSON.stringify(data, null, 2));
 
-  // Normalize Trakt response
-  const movies = query
-    ? data.map((item: any) => item.movie)
-    : data.map((item: any) => item.movie);
+  // Normalize Trakt response based on endpoint type
+  let movies;
+  if (query) {
+    // Search response format - each item has a movie property
+    movies = data
+      .map((item: any) => {
+        if (!item.movie) {
+          console.warn("Invalid search result item:", item);
+          return null;
+        }
+        return item.movie;
+      })
+      .filter(Boolean); // Remove any null items
+  } else if (genre) {
+    // Genre response format - direct array of movies
+    movies = data;
+  } else {
+    // Trending response format - each item has a movie property
+    movies = data
+      .map((item: any) => {
+        if (!item.movie) {
+          console.warn("Invalid trending result item:", item);
+          return null;
+        }
+        return item.movie;
+      })
+      .filter(Boolean); // Remove any null items
+  }
 
-  console.log("Normalized movies:", JSON.stringify(movies, null, 2)); // Debug log
+  console.log("Normalized movies array:", JSON.stringify(movies, null, 2));
 
   // Enhance with OMDb posters
   return await Promise.all(
     movies.map(async (movie: any) => {
-      console.log("Processing movie:", JSON.stringify(movie, null, 2)); // Debug log
+      if (!movie) {
+        console.warn("Skipping null movie");
+        return null;
+      }
+
+      console.log("Processing movie:", JSON.stringify(movie, null, 2));
       let poster_path: string | null = null;
 
-      if (movie?.ids?.imdb) {
+      // Handle different movie object structures
+      const movieId = movie.ids?.trakt || movie.id;
+      const imdbId = movie.ids?.imdb || movie.ids?.imdb_id;
+
+      if (!movieId) {
+        console.warn("Movie missing ID:", movie);
+        return null;
+      }
+
+      if (imdbId) {
         try {
           const omdbRes = await fetch(
-            `${OMDB_CONFIG.BASE_URL}/?i=${movie.ids.imdb}&apikey=${OMDB_CONFIG.API_KEY}`
+            `${OMDB_CONFIG.BASE_URL}/?i=${imdbId}&apikey=${OMDB_CONFIG.API_KEY}`
           );
           const omdbData = await omdbRes.json();
           if (
@@ -63,26 +114,28 @@ export const fetchMovies = async ({
             poster_path = omdbData.Poster;
           }
         } catch (err) {
-          console.warn(
-            `OMDb poster fetch failed for IMDb ID ${movie.ids.imdb}:`,
-            err
-          );
+          console.warn(`OMDb poster fetch failed for IMDb ID ${imdbId}:`, err);
         }
       }
 
       const processedMovie = {
-        id: movie.ids.trakt,
+        id: movieId,
         title: movie.title,
-        release_date: movie.released ?? `${movie.year}-01-01`, // fallback if no released date
+        release_date:
+          movie.released ?? (movie.year ? `${movie.year}-01-01` : null),
         overview: movie.overview ?? "No overview available.",
         poster_path,
-        vote_average: movie.rating ? Number((movie.rating * 2).toFixed(1)) : 0, // Convert Trakt's 5-star rating to 10-point scale
+        vote_average: movie.rating ? Number((movie.rating * 2).toFixed(1)) : 0,
         vote_count: movie.votes ?? 0,
+        genres: movie.genres || [],
       };
-      console.log("Processed movie:", JSON.stringify(processedMovie, null, 2)); // Debug log
+      console.log(
+        "Final processed movie:",
+        JSON.stringify(processedMovie, null, 2)
+      );
       return processedMovie;
     })
-  );
+  ).then((movies) => movies.filter(Boolean)); // Remove any null movies
 };
 
 export const fetchMovieDetails = async (
