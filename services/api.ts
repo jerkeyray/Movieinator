@@ -34,16 +34,19 @@ export const fetchMovies = async ({
   }
 
   const data = await response.json();
-  //console.log("Fetched Movies:", data);
+  console.log("Trakt API Response:", JSON.stringify(data, null, 2)); // Debug log
 
   // Normalize Trakt response
   const movies = query
     ? data.map((item: any) => item.movie)
     : data.map((item: any) => item.movie);
 
+  console.log("Normalized movies:", JSON.stringify(movies, null, 2)); // Debug log
+
   // Enhance with OMDb posters
   return await Promise.all(
     movies.map(async (movie: any) => {
+      console.log("Processing movie:", JSON.stringify(movie, null, 2)); // Debug log
       let poster_path: string | null = null;
 
       if (movie?.ids?.imdb) {
@@ -67,14 +70,17 @@ export const fetchMovies = async ({
         }
       }
 
-      return {
+      const processedMovie = {
         id: movie.ids.trakt,
         title: movie.title,
         release_date: movie.released ?? `${movie.year}-01-01`, // fallback if no released date
         overview: movie.overview ?? "No overview available.",
         poster_path,
-        vote_average: movie.rating ?? 0,
+        vote_average: movie.rating ? Number((movie.rating * 2).toFixed(1)) : 0, // Convert Trakt's 5-star rating to 10-point scale
+        vote_count: movie.votes ?? 0,
       };
+      console.log("Processed movie:", JSON.stringify(processedMovie, null, 2)); // Debug log
+      return processedMovie;
     })
   );
 };
@@ -83,6 +89,7 @@ export const fetchMovieDetails = async (
   movieId: string
 ): Promise<MovieDetails> => {
   try {
+    console.log("Fetching movie details for ID:", movieId);
     const response = await fetch(
       `${TRAKT_CONFIG.BASE_URL}/movies/${movieId}?extended=full`,
       {
@@ -96,18 +103,24 @@ export const fetchMovieDetails = async (
     }
 
     const data = await response.json();
+    console.log("Trakt API Response:", JSON.stringify(data, null, 2));
 
     // OMDb Enhancements
     let poster_path: string | null = null;
     let actors: string[] | undefined;
     let director: string | undefined;
+    let budget: number = 0;
+    let revenue: number = 0;
+    let production_companies: any[] = [];
 
     if (data?.ids?.imdb) {
       try {
+        console.log("Fetching OMDb data for IMDb ID:", data.ids.imdb);
         const omdbRes = await fetch(
-          `${OMDB_CONFIG.BASE_URL}/?i=${data.ids.imdb}&apikey=${OMDB_CONFIG.API_KEY}`
+          `${OMDB_CONFIG.BASE_URL}/?i=${data.ids.imdb}&apikey=${OMDB_CONFIG.API_KEY}&plot=full`
         );
         const omdbData = await omdbRes.json();
+        console.log("OMDb API Response:", JSON.stringify(omdbData, null, 2));
 
         if (omdbData?.Response === "True") {
           poster_path =
@@ -124,6 +137,20 @@ export const fetchMovieDetails = async (
             omdbData.Director && omdbData.Director !== "N/A"
               ? omdbData.Director
               : undefined;
+
+          // Parse budget and revenue from OMDb
+          if (omdbData.BoxOffice && omdbData.BoxOffice !== "N/A") {
+            const boxOffice = omdbData.BoxOffice.replace(/[^0-9]/g, "");
+            revenue = parseInt(boxOffice) || 0;
+            console.log("Parsed revenue:", revenue);
+          }
+
+          // Parse budget from OMDb
+          if (omdbData.Budget && omdbData.Budget !== "N/A") {
+            const budgetStr = omdbData.Budget.replace(/[^0-9]/g, "");
+            budget = parseInt(budgetStr) || 0;
+            console.log("Parsed budget:", budget);
+          }
         }
       } catch (err) {
         console.warn(
@@ -133,12 +160,32 @@ export const fetchMovieDetails = async (
       }
     }
 
-    return {
+    // Map genres from Trakt data
+    const genres = data.genres
+      ? data.genres.map((genre: string) => ({
+          id: 0, // Trakt doesn't provide genre IDs
+          name: genre,
+        }))
+      : [];
+
+    // Create production companies array from Trakt data
+    if (data.studio) {
+      production_companies = [
+        {
+          id: 0,
+          logo_path: null,
+          name: data.studio,
+          origin_country: "",
+        },
+      ];
+    }
+
+    const movieDetails: MovieDetails = {
       id: data.ids.trakt,
       title: data.title,
       release_date: data.released ?? `${data.year}-01-01`,
       overview: data.overview ?? "No overview available.",
-      genres: data.genres ?? [],
+      genres,
       runtime: data.runtime ?? 0,
       vote_average: data.rating ?? 0,
       tagline: data.tagline ?? "",
@@ -149,20 +196,26 @@ export const fetchMovieDetails = async (
       adult: false,
       backdrop_path: null,
       belongs_to_collection: null,
-      budget: 0,
+      budget,
       homepage: null,
       imdb_id: data.ids.imdb,
       original_language: data.language ?? "en",
       original_title: data.title,
       popularity: 0,
-      production_companies: [],
+      production_companies,
       production_countries: [],
-      revenue: 0,
+      revenue,
       spoken_languages: [],
       status: "Released",
       video: false,
-      vote_count: 0,
+      vote_count: data.votes ?? 0,
     };
+
+    console.log(
+      "Final processed movie details:",
+      JSON.stringify(movieDetails, null, 2)
+    );
+    return movieDetails;
   } catch (error) {
     console.error("Error fetching movie details:", error);
     throw error;

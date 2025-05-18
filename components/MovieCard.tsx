@@ -10,6 +10,8 @@ const MovieCard = ({
   vote_average,
   release_date,
 }: Movie) => {
+  console.log("MovieCard props:", { id, title, vote_average }); // Debug log
+
   return (
     <Link href={`/movie/${id}`} asChild>
       <TouchableOpacity className="w-[30%]">
@@ -29,7 +31,7 @@ const MovieCard = ({
         <View className="flex-row items-center justify-start gap-x-1">
           <Image source={icons.star} className="size-4" />
           <Text className="text-xs text-white font-bold uppercase">
-            {vote_average ? Math.round(vote_average) : "N/A"}
+            {vote_average ? `${vote_average.toFixed(1)}/10` : "N/A"}
           </Text>
         </View>
 
