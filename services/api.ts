@@ -34,7 +34,7 @@ export const fetchMovies = async ({
   }
 
   const data = await response.json();
-  console.log("Fetched Movies:", data);
+  //console.log("Fetched Movies:", data);
 
   // Normalize Trakt response
   const movies = query
