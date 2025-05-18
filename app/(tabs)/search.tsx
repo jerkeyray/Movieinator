@@ -38,7 +38,6 @@ const Search = () => {
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  console.log("Current state:", { searchQuery, selectedGenre });
 
   const {
     data: movies = [],
@@ -52,13 +51,10 @@ const Search = () => {
   );
 
   const handleSearch = (text: string) => {
-    console.log("Search query changed:", text);
     setSearchQuery(text);
   };
 
   const handleGenreSelect = (genre: string) => {
-    console.log("Genre selected:", genre);
-    console.log("Current selected genre:", selectedGenre);
     setSelectedGenre(genre === selectedGenre ? null : genre);
   };
 

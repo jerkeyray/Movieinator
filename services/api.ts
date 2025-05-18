@@ -20,7 +20,6 @@ export const fetchMovies = async ({
   query: string;
   genre?: string | null;
 }): Promise<Movie[]> => {
-  console.log("Fetching movies with params:", { query, genre });
 
   let endpoint = query
     ? `${TRAKT_CONFIG.BASE_URL}/search/movie?query=${encodeURIComponent(
@@ -31,10 +30,8 @@ export const fetchMovies = async ({
   // Add genre filter if specified
   if (genre) {
     endpoint = `${TRAKT_CONFIG.BASE_URL}/movies/popular?genres=${genre}&page=1&limit=20`;
-    console.log("Using genre endpoint:", endpoint);
   }
 
-  console.log("Final endpoint:", endpoint);
 
   const response = await fetch(endpoint, {
     method: "GET",

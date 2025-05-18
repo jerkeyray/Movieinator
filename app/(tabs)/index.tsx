@@ -96,7 +96,6 @@ const Index = () => {
               <FlatList
                 data={movies}
                 renderItem={({ item }) => {
-                  console.log("Movie item in index:", item);
                   return <MovieCard {...item} />;
                 }}
                 keyExtractor={(item) => item.id.toString()}
